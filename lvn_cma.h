@@ -99,6 +99,22 @@ typedef struct LvnMemoryArena
 } LvnMemoryArena;
 
 
+LvnMemoryPool*     lvn_memPoolCreate(size_t count, size_t stride, size_t align);
+LvnMemoryPool*     lvn_memPoolPush(LvnMemoryPool* headPool, size_t count);
+void               lvn_memPoolDestroy(LvnMemoryPool* headPool);
+void*              lvn_memPoolAlloc(LvnMemoryPool* memPool);
+void               lvn_memPoolFree(LvnMemoryPool* memPool, void* ptr);
+void               lvn_memPoolReset(LvnMemoryPool* headPool);
+LvnMemoryPool*     lvn_memPoolRebuild(LvnMemoryPool* headPool);
+LvnMemoryArena*    lvn_memArenaCreate(size_t size, size_t align);
+LvnMemoryArena*    lvn_memArenaPush(LvnMemoryArena* headArena, size_t size);
+void               lvn_memArenaDestroy(LvnMemoryArena* headArena);
+void*              lvn_memArenaAlloc(LvnMemoryArena* memArena, size_t size);
+void*              lvn_memArenaAllocAligned(LvnMemoryArena* memArena, size_t size, size_t align);
+void               lvn_memArenaReset(LvnMemoryArena* headArena);
+LvnMemoryArena*    lvn_memArenaRebuild(LvnMemoryArena* headArena);
+
+
 #ifdef LVN_CMA_IMPL
 
 #include <stdlib.h>
