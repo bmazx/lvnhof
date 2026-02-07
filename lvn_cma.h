@@ -55,6 +55,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 
 typedef struct LvnFreeNode
@@ -91,7 +92,9 @@ typedef struct LvnMemoryArena
     size_t currIndex;               /* current index to allocate the next element from the memory block */
     size_t capacity;                /* the capacity of the user specified memory allocation in bytes (capacity may be different from block allocation size due to alignment) */
     size_t align;                   /* the alignment multiple of the allocation in bytes */
+    size_t markIndex;               /* mark of alloc index, used for stack style allocs */
     struct LvnMemoryArena* next;    /* next memory arena */
+    bool mark;                      /* memory arena is marked or not */
 
 #ifdef LVN_CONFIG_DEBUG
     size_t d_AllocCount;            /* track allocations allocced from pool for debugging */
@@ -111,8 +114,12 @@ LvnMemoryArena*    lvn_memArenaPush(LvnMemoryArena* headArena, size_t size);
 void               lvn_memArenaDestroy(LvnMemoryArena* headArena);
 void*              lvn_memArenaAlloc(LvnMemoryArena* memArena, size_t size);
 void*              lvn_memArenaAllocAligned(LvnMemoryArena* memArena, size_t size, size_t align);
+void*              lvn_memArenaAllocMark(LvnMemoryArena* memArena, size_t size);
+void*              lvn_memArenaAllocAlignedMark(LvnMemoryArena* memArena, size_t size, size_t align);
+void               lvn_memArenaAllocPop(LvnMemoryArena* memArena);
 void               lvn_memArenaReset(LvnMemoryArena* headArena);
 LvnMemoryArena*    lvn_memArenaRebuild(LvnMemoryArena* headArena);
+bool               lvn_memArenaMarked(LvnMemoryArena* headArena);
 
 
 #ifdef LVN_CMA_IMPL
@@ -120,7 +127,6 @@ LvnMemoryArena*    lvn_memArenaRebuild(LvnMemoryArena* headArena);
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include <stdbool.h>
 
 
 bool lvn_ptrInBlock(uint8_t* block, size_t size, void* ptr)
@@ -460,6 +466,106 @@ void* lvn_memArenaAllocAligned(LvnMemoryArena* memArena, size_t size, size_t ali
     return NULL;
 }
 
+void* lvn_memArenaAllocMark(LvnMemoryArena* memArena, size_t size)
+{
+    LVN_CMA_ASSERT(memArena, "memArena cannot be null");
+    LVN_CMA_ASSERT(size > 0, "size cannot be zero, marking empty alloc is not allowed");
+    LVN_CMA_ASSERT(!lvn_memArenaMarked(memArena), "memArena cannot be marked");
+
+    while (memArena)
+    {
+        // get arena next memory block index
+        uintptr_t base = (uintptr_t)memArena->memBlock.blockAligned;
+        uintptr_t aligned = LVN_ALIGN_UP(base + memArena->currIndex, memArena->align);
+        size_t newIndex = aligned - base;
+        if (newIndex + size <= memArena->capacity)
+        {
+            void* ptr = &(memArena->memBlock.blockAligned)[memArena->currIndex];
+            memArena->markIndex = memArena->currIndex;
+            memArena->mark = true;
+            memArena->currIndex = newIndex + size;
+#ifdef LVN_CONFIG_DEBUG
+            memArena->d_AllocCount++;
+#endif
+            return ptr;
+        }
+
+        // create next arena if possible
+        if (!memArena->next)
+        {
+            LVN_CMA_ASSERT(LVN_MEMARENA_NEXT_MALLOC_MULTIPLIER != 0, "memory arena multiplier cannot be zero");
+            size_t nextSize = memArena->capacity * LVN_MEMARENA_NEXT_MALLOC_MULTIPLIER;
+            nextSize = (size > nextSize) ? size : nextSize;
+            memArena->next = lvn_memArenaCreate(nextSize, memArena->align);
+            if (!memArena->next) { return NULL; }
+        }
+
+        // arena is full, get alloc in next arena
+        memArena = memArena->next;
+    }
+
+    // unable to find next block index
+    return NULL;
+}
+
+void* lvn_memArenaAllocAlignedMark(LvnMemoryArena* memArena, size_t size, size_t align)
+{
+    LVN_CMA_ASSERT(memArena, "memArena cannot be null");
+    LVN_CMA_ASSERT(align != 0 && (align & (align - 1)) == 0, "align cannot be zero or a non power of two");
+
+    while (memArena)
+    {
+        // get arena next memory block index
+        uintptr_t base = (uintptr_t)memArena->memBlock.blockAligned;
+        uintptr_t aligned = LVN_ALIGN_UP(base + memArena->currIndex, align);
+        size_t newIndex = aligned - base;
+        if (newIndex + size <= memArena->capacity)
+        {
+            void* ptr = &(memArena->memBlock.blockAligned)[newIndex];
+            memArena->markIndex = memArena->currIndex;
+            memArena->mark = true;
+            memArena->currIndex = newIndex + size;
+#ifdef LVN_CONFIG_DEBUG
+            memArena->d_AllocCount++;
+#endif
+            return ptr;
+        }
+
+        // create next arena if possible
+        if (!memArena->next)
+        {
+            LVN_CMA_ASSERT(LVN_MEMARENA_NEXT_MALLOC_MULTIPLIER != 0, "memory arena multiplier cannot be zero");
+            size_t nextSize = memArena->capacity * LVN_MEMARENA_NEXT_MALLOC_MULTIPLIER;
+            nextSize = (size > nextSize) ? size : nextSize;
+            memArena->next = lvn_memArenaCreate(nextSize, memArena->align);
+            if (!memArena->next) { return NULL; }
+        }
+
+        // arena is full, get alloc in next arena
+        memArena = memArena->next;
+    }
+
+    // unable to find next block index
+    return NULL;
+}
+
+void lvn_memArenaAllocPop(LvnMemoryArena* memArena)
+{
+    LVN_CMA_ASSERT(memArena, "memArena cannot be null");
+
+    for (LvnMemoryArena* arena = memArena; arena; arena = arena->next)
+    {
+        if (arena->mark)
+        {
+            arena->mark = false;
+            arena->currIndex = arena->markIndex;
+            return;
+        }
+    }
+
+    LVN_CMA_ASSERT(false, "memArena or its children arenas must have a marked arena");
+}
+
 void lvn_memArenaReset(LvnMemoryArena* headArena)
 {
     LVN_CMA_ASSERT(headArena, "memArena cannot be null");
@@ -506,6 +612,18 @@ LvnMemoryArena* lvn_memArenaRebuild(LvnMemoryArena* headArena)
     }
 
     return memArena;
+}
+
+bool lvn_memArenaMarked(LvnMemoryArena* headArena)
+{
+    LVN_CMA_ASSERT(headArena, "headArena cannot be null");
+
+    for (LvnMemoryArena* arena = headArena; arena; arena = arena->next) {
+        if (arena->mark)
+            return true;
+    }
+
+    return false;
 }
 
 #endif // LVN_CMA_IMPL
