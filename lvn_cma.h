@@ -51,12 +51,16 @@
 #define LVN_ALIGNED(x, a) (((x) & ((a) - 1)) == 0)
 
 
+#ifndef LVN_EXTERNAL_DEFINE
+
 typedef enum LvnResult
 {
     Lvn_Result_Success =  0,
     Lvn_Result_Failure = -1,
     Lvn_Result_OutOfMemory = -2,
 } LvnResult;
+
+#endif // LVN_EXTERNAL_DEFINE
 
 typedef struct LvnMemoryBlock
 {
