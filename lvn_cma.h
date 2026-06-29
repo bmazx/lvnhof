@@ -31,13 +31,19 @@
 
 // alignment
 #if defined(__cplusplus) || (defined(__STDC__) && (__STDC_VERSION__ >= 202311L))
-    #define LVN_ALIGNOF(T) alignof(T)
+    #ifndef LVN_ALIGNOF
+        #define LVN_ALIGNOF(T) alignof(T)
+    #endif
     typedef max_align_t lvn_max_align_t;
 #elif defined(__STDC__) && (__STDC_VERSION__ >= 201112L)
-    #define LVN_ALIGNOF(T) _Alignof(T)
+    #ifndef LVN_ALIGNOF
+        #define LVN_ALIGNOF(T) _Alignof(T)
+    #endif
     typedef max_align_t lvn_max_align_t;
 #else
-    #define LVN_ALIGNOF(T) ((size_t)offsetof(struct { char c; T x; }, x))
+    #ifndef LVN_ALIGNOF
+        #define LVN_ALIGNOF(T) ((size_t)offsetof(struct { char c; T x; }, x))
+    #endif
     typedef union {
         long long ll;
         long double ld;
@@ -45,13 +51,18 @@
     } lvn_max_align_t;
 #endif
 
-#define LVN_DEFAULT_ALIGN (LVN_ALIGNOF(lvn_max_align_t))
-#define LVN_ALIGN_UP(x, a) (((x) + ((a) - 1)) & ~((a) - 1))
-#define LVN_ALIGN_DOWN(x, a) ((x) & ~((a) - 1))
-#define LVN_ALIGNED(x, a) (((x) & ((a) - 1)) == 0)
-
-
-#ifndef LVN_EXTERNAL_DEFINE
+#ifndef LVN_DEFAULT_ALIGN
+    #define LVN_DEFAULT_ALIGN (LVN_ALIGNOF(lvn_max_align_t))
+#endif
+#ifndef LVN_ALIGN_UP
+    #define LVN_ALIGN_UP(x, a) (((x) + ((a) - 1)) & ~((a) - 1))
+#endif
+#ifndef LVN_ALIGN_DOWN
+    #define LVN_ALIGN_DOWN(x, a) ((x) & ~((a) - 1))
+#endif
+#ifndef LVN_ALIGNED
+    #define LVN_ALIGNED(x, a) (((x) & ((a) - 1)) == 0)
+#endif
 
 typedef enum LvnResult
 {
@@ -60,7 +71,6 @@ typedef enum LvnResult
     Lvn_Result_OutOfMemory = -2,
 } LvnResult;
 
-#endif // LVN_EXTERNAL_DEFINE
 
 typedef struct LvnMemoryBlock
 {
