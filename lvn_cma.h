@@ -126,30 +126,31 @@ typedef struct LvnMemoryArenaCreateInfo
 extern "C" {
 #endif
 
-bool         lvn_ptrInBlock(uint8_t* block, size_t size, void* ptr);
-LvnResult    lvn_memBlockCreate(LvnMemoryBlock** memBlock, const LvnMemoryBlockCreateInfo* createInfo);
-void         lvn_memBlockDestroy(LvnMemoryBlock* memBlock);
-void         lvn_memBlockDestroyChain(LvnMemoryBlock* memBlock);
-size_t       lvn_memBlockGetSize(LvnMemoryBlock* memBlock);
-size_t       lvn_memBlockGetOffset(LvnMemoryBlock* memBlock);
-LvnResult    lvn_memPoolCreate(LvnMemoryPool* memPool, const LvnMemoryPoolCreateInfo* createInfo);
-void         lvn_memPoolDestroy(LvnMemoryPool* memPool);
-LvnResult    lvn_memPoolPushBlock(LvnMemoryPool* memPool, size_t count);
-void*        lvn_memPoolAlloc(LvnMemoryPool* memPool);
-void         lvn_memPoolFree(LvnMemoryPool* memPool, void* ptr);
-void         lvn_memPoolReset(LvnMemoryPool* memPool);
-LvnResult    lvn_memPoolResetMergeBlocks(LvnMemoryPool* memPool);
-size_t       lvn_memPoolGetTotalCapacity(LvnMemoryPool* memPool);
-size_t       lvn_memPoolGetAllocCount(LvnMemoryPool* memPool);
-LvnResult    lvn_memArenaCreate(LvnMemoryArena* memArena, const LvnMemoryArenaCreateInfo* createInfo);
-void         lvn_memArenaDestroy(LvnMemoryArena* memArena);
-LvnResult    lvn_memArenaPushBlock(LvnMemoryArena* memArena, size_t size);
-void*        lvn_memArenaAlloc(LvnMemoryArena* memArena, size_t size);
-void*        lvn_memArenaAllocAligned(LvnMemoryArena* memArena, size_t size, size_t align);
-LvnArenaMark lvn_memArenaMark(LvnMemoryArena* memArena);
-void         lvn_memArenaMarkRevert(LvnMemoryArena* memArena, const LvnArenaMark* mark);
-LvnResult    lvn_memArenaResetMergeBlocks(LvnMemoryArena* memArena);
-size_t       lvn_memArenaGetTotalSize(LvnMemoryArena* memArena);
+bool            lvn_ptrInBlock(uint8_t* block, size_t size, void* ptr);
+LvnResult       lvn_memBlockCreate(LvnMemoryBlock** memBlock, const LvnMemoryBlockCreateInfo* createInfo);
+void            lvn_memBlockDestroy(LvnMemoryBlock* memBlock);
+void            lvn_memBlockDestroyChain(LvnMemoryBlock* memBlock);
+size_t          lvn_memBlockGetSize(LvnMemoryBlock* memBlock);
+size_t          lvn_memBlockGetOffset(LvnMemoryBlock* memBlock);
+LvnResult       lvn_memPoolCreate(LvnMemoryPool* memPool, const LvnMemoryPoolCreateInfo* createInfo);
+void            lvn_memPoolDestroy(LvnMemoryPool* memPool);
+LvnResult       lvn_memPoolPushBlock(LvnMemoryPool* memPool, size_t count);
+void*           lvn_memPoolAlloc(LvnMemoryPool* memPool);
+void            lvn_memPoolFree(LvnMemoryPool* memPool, void* ptr);
+void            lvn_memPoolReset(LvnMemoryPool* memPool);
+LvnResult       lvn_memPoolResetMergeBlocks(LvnMemoryPool* memPool);
+size_t          lvn_memPoolGetTotalCapacity(LvnMemoryPool* memPool);
+size_t          lvn_memPoolGetAllocCount(LvnMemoryPool* memPool);
+LvnResult       lvn_memArenaCreate(LvnMemoryArena* memArena, const LvnMemoryArenaCreateInfo* createInfo);
+void            lvn_memArenaDestroy(LvnMemoryArena* memArena);
+LvnResult       lvn_memArenaPushBlock(LvnMemoryArena* memArena, size_t size);
+void*           lvn_memArenaAlloc(LvnMemoryArena* memArena, size_t size);
+void*           lvn_memArenaAllocAligned(LvnMemoryArena* memArena, size_t size, size_t align);
+LvnArenaMark    lvn_memArenaMark(LvnMemoryArena* memArena);
+void            lvn_memArenaMarkRevert(LvnMemoryArena* memArena, const LvnArenaMark* mark);
+LvnResult       lvn_memArenaResetMergeBlocks(LvnMemoryArena* memArena);
+size_t          lvn_memArenaGetTotalSize(LvnMemoryArena* memArena);
+LvnMemoryBlock* lvn_memArenaGetCurrBlock(LvnMemoryArena* memArena);
 
 #ifdef __cplusplus
 }
@@ -722,6 +723,13 @@ size_t lvn_memArenaGetTotalSize(LvnMemoryArena* memArena)
         size += currBlock->size;
 
     return size;
+}
+
+LvnMemoryBlock* lvn_memArenaGetCurrBlock(LvnMemoryArena* memArena)
+{
+    LVN_CMA_ASSERT(memArena, "memArena cannot be null");
+
+    return memArena->blocks;
 }
 
 #endif // LVN_CMA_IMPL
