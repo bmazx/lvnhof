@@ -685,6 +685,7 @@ void lvn_memArenaMarkRevert(LvnMemoryArena* memArena, const LvnArenaMark* mark)
         currBlock = currBlock->next;
         lvn_memBlockDestroy(temp);
     }
+    mark->block->next = NULL;
 
     memArena->back = mark->block;
     memArena->back->currIndex = memArena->back->allocation + mark->offset;
