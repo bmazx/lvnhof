@@ -88,7 +88,6 @@ typedef struct LvnFreeNode
 typedef struct LvnArenaMark
 {
     LvnMemoryBlock* block;
-    struct LvnArenaMark* next;
     size_t offset;
     uint64_t generation;
 } LvnArenaMark;
@@ -655,7 +654,6 @@ LvnArenaMark lvn_memArenaMark(LvnMemoryArena* memArena)
     LVN_CMA_ASSERT(memArena, "memArena cannot be null");
     return (LvnArenaMark){
         .block = memArena->back,
-        .next = NULL,
         .offset = (uintptr_t)(memArena->back->currIndex - memArena->back->allocation),
         .generation = memArena->generation,
     };
