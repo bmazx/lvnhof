@@ -184,8 +184,6 @@ LvnMemoryBlock* lvn_memArenaGetCurrBlock(LvnMemoryArena* memArena);
 #endif
 
 
-#define LVN_CMA_IMPL
-
 #ifdef LVN_CMA_IMPL
 
 #include <assert.h>
