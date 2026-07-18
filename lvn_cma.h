@@ -69,6 +69,20 @@
 #define LVN_CMA_ERROR (-1)
 #define LVN_CMA_ALLOC_ERROR (-2)
 
+typedef uint32_t LvnCmaFlags;
+
+typedef enum LvnMemoryPoolFlagBits
+{
+    Lvn_MemoryPoolFlag_DynamicGrowth = 0x00000001,
+} LvnMemoryPoolFlagBits;
+typedef LvnCmaFlags LvnMemoryPoolFlags;
+
+typedef enum LvnMemoryArenaFlagBits
+{
+    Lvn_MemoryArenaFlag_DynamicGrowth = 0x00000001,
+} LvnMemoryArenaFlagBits;
+typedef LvnCmaFlags LvnMemoryArenaFlags;
+
 typedef struct LvnMemoryBlock
 {
     struct LvnMemoryBlock* next;    /* ptr to the next memory block */
@@ -97,6 +111,7 @@ typedef struct LvnMemoryPool
     size_t stride;                  /* the stride of the element in bytes in the pool (requested size) */
     size_t strideAligned;           /* the stride aligned to a multiple of align (actual size allocated by pool) */
     size_t align;                   /* the alignment multiple of the elements in bytes */
+    LvnMemoryPoolFlags flags;       /* flag bits for the memory pool */
 
     size_t allocCount;              /* number of allocations made from the pool */
 } LvnMemoryPool;
@@ -106,6 +121,8 @@ typedef struct LvnMemoryArena
     LvnMemoryBlock* front;          /* list of blocks starting from the first block */
     LvnMemoryBlock* back;           /* last block in the list, always the current/active block */
     size_t align;                   /* the alignment multiple of the allocation in bytes */
+    LvnMemoryArenaFlags flags;      /* flag bits for the memory arena */
+
     uint64_t generation;            /* generation of the memory arena (increments every arena reset to prevent use of marks after reset) */
 } LvnMemoryArena;
 
@@ -121,12 +138,14 @@ typedef struct LvnMemoryPoolCreateInfo
     size_t count;
     size_t stride;
     size_t align;
+    LvnMemoryPoolFlags flags;
 } LvnMemoryPoolCreateInfo;
 
 typedef struct LvnMemoryArenaCreateInfo
 {
     size_t size;
     size_t align;
+    LvnMemoryArenaFlags flags;
 } LvnMemoryArenaCreateInfo;
 
 
@@ -164,6 +183,8 @@ LvnMemoryBlock* lvn_memArenaGetCurrBlock(LvnMemoryArena* memArena);
 }
 #endif
 
+
+#define LVN_CMA_IMPL
 
 #ifdef LVN_CMA_IMPL
 
@@ -291,6 +312,7 @@ int lvn_memPoolCreate(LvnMemoryPool* memPool, const LvnMemoryPoolCreateInfo* cre
         .stride = createInfo->stride,
         .strideAligned = strideAligned,
         .align = createInfo->align,
+        .flags = createInfo->flags,
         .allocCount = 0,
     };
 
@@ -374,6 +396,10 @@ void* lvn_memPoolAlloc(LvnMemoryPool* memPool)
             goto alloc_success;
         }
     }
+
+    // check pool flags for dynamic growth
+    if (!(memPool->flags & Lvn_MemoryPoolFlag_DynamicGrowth))
+        return NULL;
 
     // create new memory block if no space left
     if (lvn_memPoolPushBlock(memPool, lvn_memPoolGetTotalCapacity(memPool)) != LVN_CMA_SUCCESS)
@@ -536,6 +562,7 @@ int lvn_memArenaCreate(LvnMemoryArena* memArena, const LvnMemoryArenaCreateInfo*
         .front = memBlock,
         .back = memBlock,
         .align = createInfo->align,
+        .flags = createInfo->flags,
         .generation = 0,
     };
 
@@ -615,6 +642,10 @@ void* lvn_memArenaAllocAligned(LvnMemoryArena* memArena, size_t size, size_t ali
         memArena->back->currIndex = alignedIndex + size;
         goto alloc_success;
     }
+
+    // check pool flags for dynamic growth
+    if (!(memArena->flags & Lvn_MemoryArenaFlag_DynamicGrowth))
+        return NULL;
 
     // create new memory block if no space left
     LVN_CMA_ASSERT(memArena->back->size <= SIZE_MAX / 2, "arena size growth overflow");
